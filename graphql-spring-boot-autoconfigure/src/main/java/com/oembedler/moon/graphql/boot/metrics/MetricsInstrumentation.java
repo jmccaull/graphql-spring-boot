@@ -1,6 +1,7 @@
 package com.oembedler.moon.graphql.boot.metrics;
 
 import graphql.ExecutionResult;
+import graphql.ExecutionResultImpl;
 import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters;
 import graphql.execution.instrumentation.tracing.TracingInstrumentation;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -63,13 +64,20 @@ public class MetricsInstrumentation extends TracingInstrumentation {
                 });
 
             }
-
-            if (!tracingEnabled) {
-                executionResult.getExtensions().remove("tracing");
-            }
         }
 
-        return CompletableFuture.completedFuture(executionResult);
+        return CompletableFuture.completedFuture(removeExtensionIfDisabled(executionResult));
+    }
+
+    private ExecutionResult removeExtensionIfDisabled(ExecutionResult executionResult) {
+        ExecutionResult updated = executionResult;
+        if (!tracingEnabled) {
+            executionResult.getExtensions().remove("tracing");
+            if (executionResult.getExtensions().isEmpty()) {
+                updated = ((ExecutionResultImpl)updated).transform((builder) -> builder.errors(null));
+            }
+        }
+        return updated;
     }
 
     private Timer buildQueryTimer(String operationName, String operation) {
